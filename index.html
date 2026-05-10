@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -411,9 +412,7 @@
 
 <script>
 // ─── Config ───────────────────────────────────────────────────────────────────
-const CRIC_KEY  = '982748ee-201b-4138-8890-0562be34746e';
-const OWM_KEY   = '2adeb02633a09e2cd415e4949f1570c3';
-const CRIC_BASE = 'https://api.cricketdata.org/api/v1';
+const PROXY = 'https://cricket-proxy.anchalbhargava86.workers.dev';
 
 // ─── State ────────────────────────────────────────────────────────────────────
 let seriesMap       = {};
@@ -484,7 +483,7 @@ async function loadMatches() {
   allMatches = []; seriesMap = {};
 
   try {
-    const r = await fetch(`${CRIC_BASE}/currentMatches?apikey=${CRIC_KEY}&offset=0`);
+    const r = await fetch(`${PROXY}/cricket/currentMatches?offset=0`);
     const json = await r.json();
     if (json.status === 'failure') throw new Error(json.reason || 'API error');
 
@@ -540,9 +539,32 @@ function parseSeries(name) {
 }
 
 function isLive(m) {
+  // Primary: check score array — if any inning has runs, match is in progress
+  if (Array.isArray(m.score) && m.score.length > 0) {
+    return m.score.some(s => s.r > 0 || s.w >= 0);
+  }
+  // Secondary: check matchStarted / matchEnded flags from API
+  if (m.matchStarted === true && m.matchEnded === false) return true;
+  if (m.matchEnded === true) return false;
+  // Fallback: parse status string (least reliable)
   const s = (m.status || '').toLowerCase();
   return s.includes('innings') || s.includes('over') || s.includes('run') ||
          s.includes('live') || s.includes('wicket') || s.includes('batting');
+}
+
+function teamName(t) {
+  if (!t) return '';
+  if (typeof t === 'string') return t;
+  return t.name || t.teamName || t.shortname || JSON.stringify(t);
+}
+
+function matchDisplayName(m) {
+  // Build name from teams array — most reliable source
+  if (Array.isArray(m.teams) && m.teams.length >= 2) {
+    return m.teams.map(teamName).join(' vs ');
+  }
+  // Fallback to name field, stripping series suffix
+  return shortName(m.name || '');
 }
 
 function shortName(n) {
@@ -571,7 +593,8 @@ function onSeries() {
   (seriesMap[series] || []).forEach(m => {
     const o = document.createElement('option');
     o.value = m.id;
-    o.textContent = shortName(m.name) + (isLive(m) ? ' 🔴' : ' ⏳');
+    const live = isLive(m);
+    o.textContent = matchDisplayName(m) + (live ? ' 🔴' : ' ⏳');
     mSel.appendChild(o);
   });
 }
@@ -596,19 +619,29 @@ function onMatch() {
   if (!match) return;
   currentMatch = match;
 
-  // Populate teams
+  // Populate teams using teamName() helper — works for both string and object formats
   (match.teams || []).forEach(t => {
-    const name = typeof t === 'string' ? t : (t.name || t);
+    const name = teamName(t);
+    if (!name) return;
     const o = document.createElement('option');
     o.value = name; o.textContent = name;
     tSel.appendChild(o);
   });
 
+  // Build live score string from score array if available
+  let scoreDisplay = match.status || '';
+  if (Array.isArray(match.score) && match.score.length > 0) {
+    scoreDisplay = match.score.map(s =>
+      `${s.inning}: ${s.r}/${s.w} (${s.o} ov)`
+    ).join(' | ');
+  }
+
   // Show chips
   const live = isLive(match);
   let html = '<div class="chips">';
   if (live) html += `<span class="chip chip-live"><i class="ti ti-radio"></i>Live</span>`;
-  if (match.score)  html += `<span class="chip"><i class="ti ti-ball-cricket"></i>${match.score}</span>`;
+  else       html += `<span class="chip"><i class="ti ti-clock"></i>Not started</span>`;
+  if (scoreDisplay) html += `<span class="chip"><i class="ti ti-ball-cricket"></i>${scoreDisplay}</span>`;
   if (match.venue)  html += `<span class="chip"><i class="ti ti-map-pin"></i>${match.venue}</span>`;
   html += '</div>';
   document.getElementById('match-chips').innerHTML = html;
@@ -622,9 +655,7 @@ async function fetchWeather(match) {
   const coords = coordsFor(match.venue) || [20.5937, 78.9629];
   const [lat, lon] = coords;
   try {
-    const r = await fetch(
-      `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${OWM_KEY}&units=metric`
-    );
+    const r = await fetch(`${PROXY}/weather?lat=${lat}&lon=${lon}`);
     weatherData = await r.json();
   } catch { weatherData = null; }
 }
@@ -736,7 +767,15 @@ async function analyse() {
 
 // ─── Prompt builder ───────────────────────────────────────────────────────────
 function buildPrompt(series, match, team, odds, wx) {
-  const teams = (match.teams || []).map(t => typeof t === 'string' ? t : t.name).join(' vs ');
+  const teams = (match.teams || []).map(teamName).join(' vs ');
+
+  // Build accurate score string from score array
+  let scoreStr = match.status || 'Check live';
+  if (Array.isArray(match.score) && match.score.length > 0) {
+    scoreStr = match.score.map(s => `${s.inning}: ${s.r}/${s.w} (${s.o} ov)`).join(' | ');
+    scoreStr += ` — Status: ${match.status || ''}`;
+  }
+
   const wxBlock = wx
     ? `LIVE WEATHER at ${wx.city}:
 - Temperature: ${wx.temp}°C | Humidity: ${wx.humidity}% | Wind: ${wx.wind} m/s
@@ -748,10 +787,10 @@ function buildPrompt(series, match, team, odds, wx) {
 
 MATCH:
 - Series: ${series}
-- Match: ${match.name || teams}
+- Match: ${teams}
 - Format: ${match.matchType || 'T20'}
 - Venue: ${match.venue || 'Unknown'}
-- Current score/status: ${match.score || match.status || 'Check live'}
+- Current score: ${scoreStr}
 
 BETTING QUERY:
 - User backs: ${team}
@@ -812,12 +851,12 @@ function renderResult(match, series, team, odds, text, wx, el) {
   const vt      = (secs['ODDS VERDICT'] || '').toUpperCase();
   const shorten = vt.includes('SHORTEN');
   const conf    = vt.includes('HIGH') ? 'High confidence' : vt.includes('LOW') ? 'Low confidence' : 'Medium confidence';
-  const teams   = (match.teams || []).map(t => typeof t === 'string' ? t : t.name);
+  const teams   = (match.teams || []).map(teamName);
 
   let html = `
     <div class="result-card">
       <div class="res-header">
-        <div class="res-match">${shortName(match.name || teams.join(' vs '))}</div>
+        <div class="res-match">${matchDisplayName(match)}</div>
         <div class="res-series">${series}</div>
         <div class="res-verdict-row">
           <div class="verdict-pill ${shorten ? 'v-shorten':'v-drift'}">
