@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0a1628" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Cricket Odds" />
+  <title>Cricket Odds Analyser</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    :root {
+      --bg0: #0a1628;
+      --bg1: #112240;
+      --bg2: #0d1e3a;
+      --green: #1D9E75;
+      --green-light: #5DCAA5;
+      --green-dim: rgba(29,158,117,0.15);
+      --red: #E24B4A;
+      --red-light: #F09595;
+      --red-dim: rgba(226,75,74,0.12);
+      --text-primary: #e8f4f0;
+      --text-secondary: #7aaa98;
+      --text-muted: #4a6a60;
+      --border: rgba(255,255,255,0.08);
+      --border-md: rgba(255,255,255,0.12);
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg0);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color: var(--text-primary);
+      overscroll-behavior: none;
+    }
+
+    .app {
+      max-width: 480px;
+      margin: 0 auto;
+      min-height: 100vh;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg0);
+    }
+
+    /* App Bar */
+    .app-bar {
+      background: var(--bg0);
+      padding: env(safe-area-inset-top, 0) 0 0;
+      border-bottom: 0.5px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .app-bar-inner {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 16px 12px;
+    }
+    .app-icon {
+      width: 34px; height: 34px;
+      background: var(--green);
+      border-radius: 9px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; flex-shrink: 0;
+    }
+    .app-title { color: #fff; font-size: 15px; font-weight: 600; }
+    .app-sub { color: var(--green-light); font-size: 11px; margin-top: 1px; }
+    .live-indicator {
+      margin-left: auto;
+      display: flex; align-items: center; gap: 5px;
+      color: var(--red-light); font-size: 11px; font-weight: 600;
+    }
+    .live-dot {
+      width: 7px; height: 7px;
+      background: var(--red); border-radius: 50%;
+      animation: blink 1.6s ease-in-out infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.25} }
+
+    /* Scroll area */
+    .scroll {
+      flex: 1;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 12px 12px 110px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    /* Cards */
+    .card {
+      background: var(--bg1);
+      border-radius: 14px;
+      border: 0.5px solid var(--border);
+      padding: 14px 15px;
+    }
+    .card-label {
+      font-size: 10px; font-weight: 600;
+      color: var(--green-light);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 10px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .card-label i { font-size: 13px; }
+
+    /* Form controls */
+    .sel-wrap { position: relative; }
+    .sel-wrap::after {
+      content: '';
+      position: absolute; right: 12px; top: 50%;
+      transform: translateY(-50%);
+      border-left: 5px solid transparent;
+      border-right: 5px solid transparent;
+      border-top: 6px solid var(--green-light);
+      pointer-events: none;
+    }
+
+    select, input[type="number"] {
+      width: 100%;
+      background: var(--bg2);
+      border: 0.5px solid var(--border-md);
+      border-radius: 10px;
+      padding: 12px 38px 12px 13px;
+      font-size: 14px;
+      color: var(--text-primary);
+      font-family: inherit;
+      appearance: none;
+      -webkit-appearance: none;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    select:focus, input:focus {
+      border-color: var(--green);
+      box-shadow: 0 0 0 2px rgba(29,158,117,0.2);
+    }
+    select:disabled, input:disabled { opacity: 0.35; cursor: not-allowed; }
+    select option { background: var(--bg1); color: var(--text-primary); }
+
+    .row3 { display: flex; gap: 8px; }
+    .row3 .sel-wrap { flex: 1.5; }
+    .row3 .inp-wrap { flex: 1; position: relative; }
+    .row3 .inp-wrap input { padding-right: 46px; }
+    .inp-unit {
+      position: absolute; right: 12px; top: 50%;
+      transform: translateY(-50%);
+      font-size: 11px; color: var(--green-light);
+      pointer-events: none;
+    }
+
+    /* Match info chips */
+    .chips { margin-top: 9px; display: flex; flex-wrap: wrap; gap: 6px; }
+    .chip {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: var(--green-dim); color: var(--green-light);
+      border: 0.5px solid rgba(29,158,117,0.25);
+      font-size: 11px; padding: 4px 9px; border-radius: 20px;
+    }
+    .chip-live { background: var(--red-dim); color: var(--red-light); border-color: rgba(226,75,74,0.25); }
+    .chip i { font-size: 11px; }
+
+    /* Top bar utility row */
+    .util-row {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .util-date { font-size: 11px; color: var(--text-muted); }
+    .tiny-btn {
+      background: rgba(255,255,255,0.04);
+      border: 0.5px solid var(--border-md);
+      border-radius: 7px;
+      padding: 5px 10px;
+      font-size: 11px; color: var(--green-light);
+      cursor: pointer;
+      display: flex; align-items: center; gap: 4px;
+      font-family: inherit;
+      transition: background 0.15s;
+    }
+    .tiny-btn:hover { background: rgba(255,255,255,0.08); }
+    .tiny-btn i { font-size: 13px; }
+
+    /* Analyse button */
+    .analyse-btn {
+      position: fixed;
+      bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+      left: 50%; transform: translateX(-50%);
+      width: calc(100% - 28px);
+      max-width: 452px;
+      background: var(--green);
+      color: #fff;
+      border: none;
+      border-radius: 14px;
+      padding: 16px;
+      font-size: 15px; font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      box-shadow: 0 4px 28px rgba(29,158,117,0.45);
+      transition: opacity 0.15s, transform 0.1s;
+      z-index: 50;
+    }
+    .analyse-btn:active { transform: translateX(-50%) scale(0.98); }
+    .analyse-btn:disabled { opacity: 0.25; cursor: not-allowed; box-shadow: none; }
+    .analyse-btn i { font-size: 18px; }
+
+    /* Result card */
+    .result-card {
+      background: var(--bg1);
+      border-radius: 14px;
+      border: 0.5px solid var(--border);
+      overflow: hidden;
+      animation: slideUp 0.3s ease;
+    }
+    @keyframes slideUp {
+      from { opacity:0; transform: translateY(14px); }
+      to   { opacity:1; transform: translateY(0); }
+    }
+
+    .res-header {
+      background: var(--bg0);
+      padding: 14px 15px;
+      border-bottom: 0.5px solid var(--border);
+    }
+    .res-match { color: #fff; font-size: 14px; font-weight: 600; }
+    .res-series { color: var(--green-light); font-size: 11px; margin-top: 2px; }
+    .res-verdict-row {
+      display: flex; align-items: center;
+      justify-content: space-between;
+      margin-top: 10px;
+    }
+    .verdict-pill { padding: 6px 13px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+    .v-shorten { background: rgba(29,158,117,0.18); color: var(--green-light); }
+    .v-drift   { background: var(--red-dim); color: var(--red-light); }
+    .conf-label { font-size: 11px; color: var(--text-secondary); }
+
+    .res-body { padding: 14px 15px; display: flex; flex-direction: column; gap: 12px; }
+
+    .odds-box {
+      background: var(--bg2);
+      border-radius: 10px;
+      padding: 12px 14px;
+      display: flex; gap: 10px; align-items: flex-start;
+    }
+    .odds-emoji { font-size: 26px; line-height: 1; }
+    .odds-main { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+    .odds-sub { font-size: 12px; color: var(--text-secondary); margin-top: 3px; line-height: 1.5; }
+
+    .weather-strip { display: flex; gap: 7px; }
+    .wx-chip {
+      flex: 1;
+      background: var(--bg2);
+      border-radius: 9px;
+      padding: 9px 6px;
+      text-align: center;
+    }
+    .wx-val { font-size: 15px; font-weight: 600; color: var(--text-primary); }
+    .wx-lbl { font-size: 10px; color: var(--green-light); margin-top: 2px; }
+
+    .sec { }
+    .sec-title {
+      font-size: 10px; font-weight: 600;
+      color: var(--green-light);
+      text-transform: uppercase; letter-spacing: 0.9px;
+      margin-bottom: 6px;
+      display: flex; align-items: center; gap: 5px;
+    }
+    .sec-title i { font-size: 13px; }
+    .sec-text { font-size: 13px; line-height: 1.7; color: #b8d4cc; }
+
+    .divider { height: 0.5px; background: var(--border); }
+
+    /* Loading state */
+    .loading-wrap {
+      padding: 26px 15px;
+      display: flex; flex-direction: column; align-items: center; gap: 14px;
+    }
+    .spinner {
+      width: 34px; height: 34px;
+      border: 2.5px solid rgba(255,255,255,0.08);
+      border-top-color: var(--green);
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .steps { width: 100%; display: flex; flex-direction: column; gap: 4px; }
+    .step {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 12px; color: rgba(255,255,255,0.25);
+      padding: 7px 10px; border-radius: 8px;
+      transition: all 0.25s;
+    }
+    .step.active { color: var(--text-primary); background: rgba(255,255,255,0.04); }
+    .step.done { color: var(--green-light); }
+    .step i { font-size: 13px; width: 14px; text-align: center; }
+
+    /* Error */
+    .err-box {
+      background: var(--red-dim);
+      border: 0.5px solid rgba(226,75,74,0.25);
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 13px; color: var(--red-light);
+      display: flex; gap: 8px; align-items: flex-start;
+      line-height: 1.6;
+    }
+    .err-box i { font-size: 15px; margin-top: 1px; flex-shrink: 0; }
+
+    /* Scrollbar */
+    .scroll::-webkit-scrollbar { width: 3px; }
+    .scroll::-webkit-scrollbar-track { background: transparent; }
+    .scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- App Bar -->
+  <div class="app-bar">
+    <div class="app-bar-inner">
+      <div class="app-icon">🏏</div>
+      <div>
+        <div class="app-title">Cricket Odds Analyser</div>
+        <div class="app-sub">Live match intelligence</div>
+      </div>
+      <div class="live-indicator">
+        <div class="live-dot"></div>
+        LIVE
+      </div>
+    </div>
+  </div>
+
+  <!-- Scroll Content -->
+  <div class="scroll" id="scroll">
+
+    <!-- Row 1: Series -->
+    <div class="card">
+      <div class="card-label">
+        <i class="ti ti-trophy"></i> Series
+      </div>
+      <div class="util-row">
+        <span class="util-date" id="date-lbl"></span>
+        <button class="tiny-btn" onclick="loadMatches()">
+          <i class="ti ti-refresh"></i> Refresh
+        </button>
+      </div>
+      <div class="sel-wrap">
+        <select id="series-sel" onchange="onSeries()">
+          <option value="">Fetching live series...</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Row 2: Match -->
+    <div class="card">
+      <div class="card-label">
+        <i class="ti ti-circle-dot"></i> Match
+      </div>
+      <div class="sel-wrap">
+        <select id="match-sel" onchange="onMatch()" disabled>
+          <option value="">Select a series first</option>
+        </select>
+      </div>
+      <div id="match-chips"></div>
+    </div>
+
+    <!-- Row 3: Back Odds -->
+    <div class="card">
+      <div class="card-label">
+        <i class="ti ti-coins"></i> Back Odds
+      </div>
+      <div class="row3">
+        <div class="sel-wrap">
+          <select id="team-sel" disabled onchange="checkBtn()">
+            <option value="">Select team...</option>
+          </select>
+        </div>
+        <div class="inp-wrap">
+          <input
+            type="number" id="odds-inp"
+            min="1.01" step="0.01"
+            placeholder="e.g. 5.0"
+            disabled
+            oninput="checkBtn()"
+          />
+          <span class="inp-unit">odds</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Result injected here -->
+    <div id="result"></div>
+
+  </div><!-- /scroll -->
+
+  <button class="analyse-btn" id="btn" onclick="analyse()" disabled>
+    <i class="ti ti-brain"></i> Analyse &amp; Predict
+  </button>
+
+</div><!-- /app -->
+
+<script>
+// ─── Config ───────────────────────────────────────────────────────────────────
+const CRIC_KEY  = '982748ee-201b-4138-8890-0562be34746e';
+const OWM_KEY   = '2adeb02633a09e2cd415e4949f1570c3';
+const CRIC_BASE = 'https://api.cricketdata.org/api/v1';
+
+// ─── State ────────────────────────────────────────────────────────────────────
+let seriesMap       = {};
+let allMatches      = [];
+let currentMatch    = null;
+let weatherData     = null;
+
+// ─── Venue → coordinates map ──────────────────────────────────────────────────
+const VENUE_COORDS = {
+  'wankhede':       [18.9388,  72.8258],
+  'chinnaswamy':    [12.9788,  77.5996],
+  'eden gardens':   [22.5644,  88.3426],
+  'chepauk':        [13.0604,  80.2790],
+  'chidambaram':    [13.0604,  80.2790],
+  'kotla':          [28.6363,  77.2507],
+  'feroz shah':     [28.6363,  77.2507],
+  'rajiv gandhi':   [17.4031,  78.4680],
+  'uppal':          [17.4031,  78.4680],
+  'narendra modi':  [23.0902,  72.6009],
+  'motera':         [23.0902,  72.6009],
+  'holkar':         [22.7204,  75.8839],
+  'sawai':          [26.8824,  75.8005],
+  'pune':           [18.6298,  73.7997],
+  'brabourne':      [18.9315,  72.8263],
+  'barsapara':      [26.1433,  91.7898],
+  'himachal':       [32.2190,  76.3234],
+  'dharamsala':     [32.2190,  76.3234],
+  'jsca':           [23.3441,  85.3096],
+  'ranchi':         [23.3441,  85.3096],
+  'lahore':         [31.5204,  74.3587],
+  'karachi':        [24.8607,  67.0011],
+  'headingley':     [53.8171,  -1.5822],
+  'lords':          [51.5293,  -0.1724],
+  "lord's":         [51.5293,  -0.1724],
+  'oval':           [51.4839,  -0.1130],
+  'edgbaston':      [52.4558,  -1.9028],
+  'gabba':          [-27.4858, 153.0381],
+  'mcg':            [-37.8200, 144.9834],
+  'scg':            [-33.8915, 151.2246],
+  'adelaide':       [-34.9158, 138.5962],
+  'wanderers':      [-26.1524,  28.0031],
+  'newlands':       [-33.9011,  18.4081],
+  'antigua':        [17.1165,  -61.8466],
+  'bridgetown':     [13.0969,  -59.6145],
+};
+
+function coordsFor(venue) {
+  if (!venue) return null;
+  const v = venue.toLowerCase();
+  for (const [k, c] of Object.entries(VENUE_COORDS)) {
+    if (v.includes(k)) return c;
+  }
+  return null;
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+const d = new Date();
+document.getElementById('date-lbl').textContent =
+  d.toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
+
+loadMatches();
+
+// ─── Load matches from CricketData API ───────────────────────────────────────
+async function loadMatches() {
+  const sel = document.getElementById('series-sel');
+  sel.innerHTML = '<option value="">Fetching live series...</option>';
+  sel.disabled = true;
+  allMatches = []; seriesMap = {};
+
+  try {
+    const r = await fetch(`${CRIC_BASE}/currentMatches?apikey=${CRIC_KEY}&offset=0`);
+    const json = await r.json();
+    if (json.status === 'failure') throw new Error(json.reason || 'API error');
+
+    const matches = json.data || [];
+    matches.forEach(m => {
+      const series = m.series || m.seriesName || parseSeries(m.name) || 'Other';
+      if (!seriesMap[series]) seriesMap[series] = [];
+      seriesMap[series].push(m);
+      allMatches.push(m);
+    });
+
+    populateSeries(sel);
+  } catch (err) {
+    console.warn('CricketData API error:', err.message);
+    loadFallback();
+    populateSeries(sel);
+  }
+}
+
+function populateSeries(sel) {
+  sel.innerHTML = '<option value="">Select series...</option>';
+  Object.keys(seriesMap).sort().forEach(s => {
+    const o = document.createElement('option');
+    o.value = s; o.textContent = s;
+    sel.appendChild(o);
+  });
+  sel.disabled = false;
+}
+
+function loadFallback() {
+  const fb = [
+    { id:'f1', name:'RCB vs MI, IPL 2025', teams:[{name:'RCB'},{name:'MI'}],
+      series:'IPL 2025', status:'1st Innings', matchType:'T20',
+      venue:'M Chinnaswamy Stadium, Bengaluru', score:'RCB 142/4 (16.2 ov)' },
+    { id:'f2', name:'CSK vs KKR, IPL 2025', teams:[{name:'CSK'},{name:'KKR'}],
+      series:'IPL 2025', status:'Match not started', matchType:'T20',
+      venue:'MA Chidambaram Stadium, Chennai', score:'Starts 19:30 IST' },
+    { id:'f3', name:'Pakistan vs South Africa — 2nd T20I', teams:[{name:'Pakistan'},{name:'South Africa'}],
+      series:'Pakistan vs South Africa T20I 2025', status:'2nd Innings', matchType:'T20',
+      venue:'Gaddafi Stadium, Lahore', score:'SA 88/3 (11.4 ov) — Chasing 181' },
+  ];
+  fb.forEach(m => {
+    if (!seriesMap[m.series]) seriesMap[m.series] = [];
+    seriesMap[m.series].push(m);
+    allMatches.push(m);
+  });
+}
+
+function parseSeries(name) {
+  if (!name) return 'Other';
+  const m = name.match(/,\s*(.+)$/);
+  return m ? m[1].trim() : null;
+}
+
+function isLive(m) {
+  const s = (m.status || '').toLowerCase();
+  return s.includes('innings') || s.includes('over') || s.includes('run') ||
+         s.includes('live') || s.includes('wicket') || s.includes('batting');
+}
+
+function shortName(n) {
+  if (!n) return '';
+  return n.replace(/,\s*IPL\s*\d+/i,'').replace(/,\s*T20\s*(Series|World).*/i,'').trim();
+}
+
+// ─── Row 1 → 2 cascade ───────────────────────────────────────────────────────
+function onSeries() {
+  const series = document.getElementById('series-sel').value;
+  const mSel   = document.getElementById('match-sel');
+  const tSel   = document.getElementById('team-sel');
+  const oInp   = document.getElementById('odds-inp');
+
+  mSel.innerHTML = '<option value="">Select a match...</option>';
+  tSel.innerHTML  = '<option value="">Select team...</option>';
+  mSel.disabled  = !series;
+  tSel.disabled  = true;
+  oInp.disabled  = true;
+  document.getElementById('match-chips').innerHTML = '';
+  document.getElementById('result').innerHTML = '';
+  currentMatch = null; weatherData = null;
+  checkBtn();
+  if (!series) return;
+
+  (seriesMap[series] || []).forEach(m => {
+    const o = document.createElement('option');
+    o.value = m.id;
+    o.textContent = shortName(m.name) + (isLive(m) ? ' 🔴' : ' ⏳');
+    mSel.appendChild(o);
+  });
+}
+
+// ─── Row 2 → 3 cascade ───────────────────────────────────────────────────────
+function onMatch() {
+  const series  = document.getElementById('series-sel').value;
+  const matchId = document.getElementById('match-sel').value;
+  const tSel    = document.getElementById('team-sel');
+  const oInp    = document.getElementById('odds-inp');
+
+  tSel.innerHTML = '<option value="">Select team to back...</option>';
+  tSel.disabled  = !matchId;
+  oInp.disabled  = !matchId;
+  document.getElementById('match-chips').innerHTML = '';
+  document.getElementById('result').innerHTML = '';
+  currentMatch = null; weatherData = null;
+  checkBtn();
+  if (!matchId) return;
+
+  const match = (seriesMap[series] || []).find(m => String(m.id) === String(matchId));
+  if (!match) return;
+  currentMatch = match;
+
+  // Populate teams
+  (match.teams || []).forEach(t => {
+    const name = typeof t === 'string' ? t : (t.name || t);
+    const o = document.createElement('option');
+    o.value = name; o.textContent = name;
+    tSel.appendChild(o);
+  });
+
+  // Show chips
+  const live = isLive(match);
+  let html = '<div class="chips">';
+  if (live) html += `<span class="chip chip-live"><i class="ti ti-radio"></i>Live</span>`;
+  if (match.score)  html += `<span class="chip"><i class="ti ti-ball-cricket"></i>${match.score}</span>`;
+  if (match.venue)  html += `<span class="chip"><i class="ti ti-map-pin"></i>${match.venue}</span>`;
+  html += '</div>';
+  document.getElementById('match-chips').innerHTML = html;
+
+  fetchWeather(match);
+  checkBtn();
+}
+
+// ─── Weather ──────────────────────────────────────────────────────────────────
+async function fetchWeather(match) {
+  const coords = coordsFor(match.venue) || [20.5937, 78.9629];
+  const [lat, lon] = coords;
+  try {
+    const r = await fetch(
+      `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${OWM_KEY}&units=metric`
+    );
+    weatherData = await r.json();
+  } catch { weatherData = null; }
+}
+
+function buildWeatherSummary() {
+  if (!weatherData || !weatherData.main) return null;
+  const { main, wind, weather, name } = weatherData;
+  const dew  = +(main.temp - (100 - main.humidity) / 5).toFixed(1);
+  const risk = main.humidity > 80 ? 'High' : main.humidity > 65 ? 'Moderate' : 'Low';
+  return {
+    city:       name,
+    temp:       main.temp?.toFixed(1),
+    humidity:   main.humidity,
+    wind:       wind?.speed?.toFixed(1),
+    desc:       weather?.[0]?.description,
+    dew,
+    dewRisk:    risk,
+  };
+}
+
+// ─── Button state ─────────────────────────────────────────────────────────────
+function checkBtn() {
+  const s = document.getElementById('series-sel').value;
+  const m = document.getElementById('match-sel').value;
+  const t = document.getElementById('team-sel').value;
+  const o = parseFloat(document.getElementById('odds-inp').value);
+  document.getElementById('btn').disabled = !(s && m && t && o > 1);
+}
+
+// ─── Loading steps ────────────────────────────────────────────────────────────
+const STEPS = [
+  { icon:'ti-refresh',   text:'Fetching live scorecard...' },
+  { icon:'ti-users',     text:'Checking batting lineup & form...' },
+  { icon:'ti-chart-bar', text:'Analysing bowling resources...' },
+  { icon:'ti-cloud',     text:'Reading pitch & dew conditions...' },
+  { icon:'ti-brain',     text:'Running AI prediction model...' },
+];
+
+// ─── Main analysis function ───────────────────────────────────────────────────
+async function analyse() {
+  const series  = document.getElementById('series-sel').value;
+  const matchId = document.getElementById('match-sel').value;
+  const team    = document.getElementById('team-sel').value;
+  const odds    = parseFloat(document.getElementById('odds-inp').value);
+  const match   = currentMatch;
+  if (!match) return;
+
+  const resEl = document.getElementById('result');
+
+  // Show loading
+  resEl.innerHTML = `
+    <div class="result-card">
+      <div class="loading-wrap">
+        <div class="spinner"></div>
+        <div class="steps">
+          ${STEPS.map((s,i) =>
+            `<div class="step" id="step${i}">
+               <i class="ti ${s.icon}"></i>${s.text}
+             </div>`
+          ).join('')}
+        </div>
+      </div>
+    </div>`;
+
+  resEl.scrollIntoView({ behavior:'smooth', block:'nearest' });
+
+  // Animate steps
+  for (let i = 0; i < STEPS.length; i++) {
+    await wait(640);
+    if (i > 0) {
+      const p = document.getElementById(`step${i-1}`);
+      if (p) { p.classList.remove('active'); p.classList.add('done'); p.querySelector('i').className = 'ti ti-check'; }
+    }
+    const c = document.getElementById(`step${i}`);
+    if (c) c.classList.add('active');
+  }
+  await wait(500);
+
+  const wx = buildWeatherSummary();
+  const prompt = buildPrompt(series, match, team, odds, wx);
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        tools: [{ type: 'web_search_20250305', name: 'web_search' }],
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    });
+    const data = await resp.json();
+    const text = (data.content || [])
+      .filter(b => b.type === 'text')
+      .map(b => b.text)
+      .join('\n');
+    renderResult(match, series, team, odds, text, wx, resEl);
+  } catch (err) {
+    resEl.innerHTML = `
+      <div class="result-card" style="padding:14px 15px">
+        <div class="err-box">
+          <i class="ti ti-alert-circle"></i>
+          Analysis failed: ${err.message}. Please check your internet connection and try again.
+        </div>
+      </div>`;
+  }
+}
+
+// ─── Prompt builder ───────────────────────────────────────────────────────────
+function buildPrompt(series, match, team, odds, wx) {
+  const teams = (match.teams || []).map(t => typeof t === 'string' ? t : t.name).join(' vs ');
+  const wxBlock = wx
+    ? `LIVE WEATHER at ${wx.city}:
+- Temperature: ${wx.temp}°C | Humidity: ${wx.humidity}% | Wind: ${wx.wind} m/s
+- Conditions: ${wx.desc}
+- Dew point: ${wx.dew}°C | Dew risk: ${wx.dewRisk}`
+    : 'Weather data unavailable.';
+
+  return `You are a professional cricket analyst specialising in live in-play betting. Give a sharp, data-driven analysis.
+
+MATCH:
+- Series: ${series}
+- Match: ${match.name || teams}
+- Format: ${match.matchType || 'T20'}
+- Venue: ${match.venue || 'Unknown'}
+- Current score/status: ${match.score || match.status || 'Check live'}
+
+BETTING QUERY:
+- User backs: ${team}
+- Back odds: ${odds}
+(Higher odds = underdog. Lower odds = favourite.)
+
+${wxBlock}
+
+INSTRUCTIONS:
+1. Web-search the LIVE scorecard for "${match.name || teams}": current score, wickets, overs, recent over-by-over, who is batting, fall of wickets, bowling figures.
+2. Search for recent form of top 3-4 players likely still to bat for ${team}.
+3. Search for bowling: which bowlers have bowled how many overs, who is fresh, death bowling options for opposition.
+4. Provide analysis in EXACTLY these sections (use these headings verbatim):
+
+CURRENT SITUATION
+BATTING RESOURCES
+BOWLING ANALYSIS
+PITCH & CONDITIONS
+ODDS VERDICT
+MATCH PREDICTION
+
+For ODDS VERDICT: state SHORTEN or DRIFT clearly, then confidence (HIGH / MEDIUM / LOW) and 1-2 sentence reason.
+For MATCH PREDICTION: be specific — predicted final score, likely winner, key moments.
+Keep each section to 2-4 sentences. Be direct and sharp, not vague.`;
+}
+
+// ─── Render result ────────────────────────────────────────────────────────────
+const SEC_KEYS = ['CURRENT SITUATION','BATTING RESOURCES','BOWLING ANALYSIS','PITCH & CONDITIONS','ODDS VERDICT','MATCH PREDICTION'];
+const SEC_ICON = {
+  'CURRENT SITUATION': 'ti-ball-cricket',
+  'BATTING RESOURCES': 'ti-users',
+  'BOWLING ANALYSIS':  'ti-chart-bar',
+  'PITCH & CONDITIONS':'ti-leaf',
+  'ODDS VERDICT':      'ti-trending-up',
+  'MATCH PREDICTION':  'ti-brain',
+};
+
+function parseSections(text) {
+  const out = {};
+  let cur = null;
+  text.split('\n').forEach(raw => {
+    const line = raw.replace(/\*\*/g,'').replace(/^#+\s*/,'').trim();
+    const hit = SEC_KEYS.find(k => line.toUpperCase().startsWith(k));
+    if (hit) { cur = hit; out[hit] = ''; return; }
+    if (cur && line) out[cur] = (out[cur] ? out[cur] + ' ' : '') + line.replace(/^\d+\.\s*/,'');
+  });
+  return out;
+}
+
+function renderResult(match, series, team, odds, text, wx, el) {
+  const secs = parseSections(text);
+
+  // Fallback if parsing fails
+  if (!Object.keys(secs).length) {
+    secs['MATCH PREDICTION'] = text.replace(/\*\*/g,'').replace(/#+/g,'').trim().slice(0, 900);
+  }
+
+  const vt      = (secs['ODDS VERDICT'] || '').toUpperCase();
+  const shorten = vt.includes('SHORTEN');
+  const conf    = vt.includes('HIGH') ? 'High confidence' : vt.includes('LOW') ? 'Low confidence' : 'Medium confidence';
+  const teams   = (match.teams || []).map(t => typeof t === 'string' ? t : t.name);
+
+  let html = `
+    <div class="result-card">
+      <div class="res-header">
+        <div class="res-match">${shortName(match.name || teams.join(' vs '))}</div>
+        <div class="res-series">${series}</div>
+        <div class="res-verdict-row">
+          <div class="verdict-pill ${shorten ? 'v-shorten':'v-drift'}">
+            ${shorten ? '▼ Odds will Shorten' : '▲ Odds will Drift'}
+          </div>
+          <div class="conf-label">${conf}</div>
+        </div>
+      </div>
+      <div class="res-body">
+        <div class="odds-box">
+          <span class="odds-emoji">${shorten ? '📉' : '📈'}</span>
+          <div>
+            <div class="odds-main">${team} @ ${odds} — ${shorten ? 'Back now, likely to shorten' : 'Risky — likely drifting out'}</div>
+            <div class="odds-sub">${(secs['ODDS VERDICT']||'').replace(/(SHORTEN|DRIFT|HIGH|MEDIUM|LOW)/gi,'').replace(/:/g,'').trim().slice(0,120)}</div>
+          </div>
+        </div>`;
+
+  // Weather strip
+  if (wx) {
+    html += `
+      <div class="divider"></div>
+      <div class="sec">
+        <div class="sec-title"><i class="ti ti-cloud"></i>Live conditions — ${wx.city}</div>
+        <div class="weather-strip">
+          <div class="wx-chip"><div class="wx-val">${wx.temp}°C</div><div class="wx-lbl">Temp</div></div>
+          <div class="wx-chip"><div class="wx-val">${wx.humidity}%</div><div class="wx-lbl">Humidity</div></div>
+          <div class="wx-chip"><div class="wx-val">${wx.dewRisk}</div><div class="wx-lbl">Dew</div></div>
+          <div class="wx-chip"><div class="wx-val">${wx.wind}</div><div class="wx-lbl">Wind m/s</div></div>
+        </div>
+      </div>`;
+  }
+
+  // Analysis sections (skip ODDS VERDICT — already shown above)
+  SEC_KEYS.filter(k => k !== 'ODDS VERDICT').forEach(k => {
+    const txt = secs[k];
+    if (!txt) return;
+    html += `
+      <div class="divider"></div>
+      <div class="sec">
+        <div class="sec-title"><i class="ti ${SEC_ICON[k]}"></i>${k.toLowerCase().replace(/\b\w/g,c=>c.toUpperCase())}</div>
+        <div class="sec-text">${txt}</div>
+      </div>`;
+  });
+
+  html += '</div></div>';
+  el.innerHTML = html;
+  el.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+
+function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
+</script>
+</body>
+</html>
